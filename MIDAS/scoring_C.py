@@ -106,19 +106,19 @@ def RankScores(Compound_Scores_list, output_filename, bSpectrumDetails, sRealInc
     output_file.close()
 
 
-def score_main(Compound_list, sOutput_Filename, sEnergy_Bond_dict,bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename):
+def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename):
     #print sCurrentScanNumber
     precursor_accuracy = dMass_Tolerance_Parent_Ion
     Compound_Scores_list = []
     allPeaks_list = NormalizeIntensity(current_peaks_list)
     QueryCompound_list = GetRelatedCompound(Compound_list, dCurrentParentMass, precursor_accuracy)
+    #print len(QueryCompound_list)
     for each_compound in QueryCompound_list :
         current_mol = Chem.MolFromInchi(each_compound[1])
         current_fragments_list = Chem.GetMolFrags(current_mol, asMols=True, sanitizeFrags=False)
         if (len(current_fragments_list) != 1) :
             continue
-       # print len(QueryCompound_list)
-        dCurrentScore, dCurrentEnergy, iIdentifiedPeak, sAnnotation_list, sOtherInfo, sAFT2_Info_list= weightedscore.OwnScore(sEnergy_Bond_dict, allPeaks_list, current_mol, bBreakRing, dCurrentPrecursor_type, bRankSum, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
+        dCurrentScore, dCurrentEnergy, iIdentifiedPeak, sAnnotation_list, sOtherInfo, sAFT2_Info_list= weightedscore.OwnScore( allPeaks_list, current_mol, bBreakRing, dCurrentPrecursor_type, bRankSum, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
         if (dCurrentPrecursor_type == 1) :
             sScanType = "PositiveIon"
         else :

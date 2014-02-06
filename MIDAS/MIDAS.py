@@ -77,9 +77,10 @@ def get_file_list_with_ext(working_dir, file_ext):
     return file_list
 
 
-def HandleOneRealHit(compound_list, sOutput_Filename, sEnergy_Bond_dict,bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename) :
-    #print iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list
-    scoring_C.score_main(compound_list, sOutput_Filename, sEnergy_Bond_dict,bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename)
+def HandleOneRealHit(compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename) :
+ 
+
+    scoring_C.score_main(compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename)
 
 
 
@@ -117,8 +118,10 @@ def ReadCompoundFile(compound_filename) :
     return compound_list
 
 
-def HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, sEnergy_Bond_dict, process_number, bSpectrumDetails, bBreakRing, bRankSum, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, sAnnotation_Filename) :
-    
+def HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, process_number, bSpectrumDetails, bBreakRing, bRankSum, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, sAnnotation_Filename) :
+   
+    #This function has the multi-processing part
+
     dProtonMass = 1.007825 # proton mass
     mypool = Pool(processes=process_number)
     compound_list = ReadCompoundFile(compound_filename)
@@ -132,29 +135,10 @@ def HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, sEner
         dPrecursorMofZ         = each_scan[4]
         sRetentionTime         = each_scan[5]
         #print dCurrentParenMass, sCurrentScanNumber, dCurrentPrecursor_type
-        result = mypool.apply_async(HandleOneRealHit,(compound_list, sOutput_Filename, sEnergy_Bond_dict, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename))
+        result = mypool.apply_async(HandleOneRealHit,(compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename))
     mypool.close()
     mypool.join()
 
-
-def HandleBondDict(bond_ori_dict):
-    Bond_Symbols_list = ["-","=","~"]
-    sEnergy_Bond_dict = {}
-    for sCurrent_Bond, sCurrent_Energy in bond_ori_dict.items() :
-        dCurrent_Energy = float(sCurrent_Energy)
-        sCurrent_Bond = sCurrent_Bond.replace("+", "=")
-        sEnergy_Bond_dict[sCurrent_Bond] = dCurrent_Energy
-        for sCurrentBondSymbol in Bond_Symbols_list :
-            if sCurrentBondSymbol in sCurrent_Bond :
-                sAtom_Symol_list = sCurrent_Bond.split(sCurrentBondSymbol)
-                dMirror_Bond     = sAtom_Symol_list[-1] + sCurrentBondSymbol + sAtom_Symol_list[0]
-                sEnergy_Bond_dict[dMirror_Bond] = dCurrent_Energy
-                continue
-
-    #for key, value in sEnergy_Bond_dict.items():
-    #    print key, value
-
-    return sEnergy_Bond_dict
 
 def ReadWindowInfo(sWindow) :
     sWindow = sWindow.strip(",")
@@ -179,8 +163,6 @@ def ReadConfigureFile(sConfigure_Filename) :
     sBreak_rings = wholeDict.get("[Metabolite_Identification]Break_rings")
     iFragmentation_Depth = int(wholeDict.get("[Metabolite_Identification]Fragmentation_Depth"))
     process_number = int(wholeDict.get("[Metabolite_Identification]Number_of_Processes"))
-#    bond_ori_dict = parseconfig.getConfigMasterKeyValue("[Chemical_Information]Bond", wholeDict)
-    bond_ori_dict = {}
     bRankSum = False
 
     if (sDefault_Polarity == "positive") :
@@ -199,11 +181,7 @@ def ReadConfigureFile(sConfigure_Filename) :
     else :
         bBreakRing = False
     
-    sEnergy_Bond_dict = HandleBondDict(bond_ori_dict)
-
-
-    #print compound_filename, iDefault_Polarity, iDefault_Charge_State, iMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, bBreakRing, iFragmentation_Depth, process_number, bRankSum
-    return [compound_filename, iDefault_Polarity, iDefault_Charge_State, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, bBreakRing, iFragmentation_Depth, process_number, sEnergy_Bond_dict, bRankSum, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list]
+    return [compound_filename, iDefault_Polarity, iDefault_Charge_State, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, bBreakRing, iFragmentation_Depth, process_number, bRankSum, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list]
 
 
 def OutputFileHead(sConfigure_Filename) :
@@ -294,19 +272,13 @@ def ReadFT2Files(sFT2_Filename, iDefault_Polarity, iDefault_Charge_State) :
 
 def main(argv=None):
 
-    #precursor_accuracy = 0.02
-    # try to get arguments and error handling
     if argv is None:
         argv = sys.argv
-       		 # parse options
         [sFT2_Filename, sOutput_Filename, sConfigure_Filename, sAnnotation_Filename] = parse_options(argv)
         sFT2_basename = os.path.basename(sFT2_Filename)
-#        print sFT2_Filename, sOutput_Filename,  sConfigure_Filename
-        [compound_filename, iDefault_Polarity, iDefault_Charge_State, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, bBreakRing, iFragmentation_Depth, process_number, sEnergy_Bond_dict, bRankSum, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list] = ReadConfigureFile(sConfigure_Filename)
+        [compound_filename, iDefault_Polarity, iDefault_Charge_State, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, bBreakRing, iFragmentation_Depth, process_number, bRankSum, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list] = ReadConfigureFile(sConfigure_Filename)
          
-#        print sEnergy_Bond_dict        
         all_scans_list = ReadFT2Files(sFT2_Filename, iDefault_Polarity, iDefault_Charge_State)
-#        print all_scans_list
         sOutputhead = OutputFileHead(sConfigure_Filename)
         Output_File = open(sOutput_Filename, "w")
         Output_File.write(sOutputhead)
@@ -316,13 +288,7 @@ def main(argv=None):
         Annotation_File.write("m/z\tIntensity\tResolution\tBaseline\tNoise\tCharge\tSMILES\tProtonOffset\tm/zError\tFragmentationLevel\n")
         Annotation_File.close()
         bSpectrumDetails = False
-        #print iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list
-        HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, sEnergy_Bond_dict, process_number, bSpectrumDetails, bBreakRing, bRankSum, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, sAnnotation_Filename)
-
-       # [all_realhit_filename, compound_filename, output_foldername, energy_filename, process_number, bSpectrumDetails, bBreakRing, precursor_type, bRankSum] = parse_options(argv)
-       # script_path = sys.argv[0]
-       # script_dir  = os.path.dirname(os.path.abspath(script_path))
-       # HandleAllRealHits(script_dir, all_realhit_filename, compound_filename, output_foldername, energy_filename, process_number, bSpectrumDetails, bBreakRing, precursor_type, bRankSum)
+        HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, process_number, bSpectrumDetails, bBreakRing, bRankSum, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, sAnnotation_Filename)
 
 
 

@@ -10,21 +10,19 @@ from rdkit.Chem import Descriptors
 from rdkit.Chem import AllChem
 
 
-#global dMass_Tolerance_Fragment_Ions
-#dMass_Tolerance_Fragment_Ions = 0.01
 
 
-def OwnScore(sEnergy_Bond_dict, allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, dMass_Tolerance_Fragment_Ions,iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list):
+def OwnScore( allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, dMass_Tolerance_Fragment_Ions,iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list):
 #    global dMass_Tolerance_Fragment_Ions
 #    dMass_Tolerance_Fragment_Ions = 0.01
 #    print iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list
-    sOtherInfo = "otherinfo"
+    sOtherInfo = ""
     dCurrentScore = 0
     dCurrentEnergy = 0
     iIdentifiedPeak= 0
     peakmatch_list = [[] for each_peak in allPeaks_list]
-    total_fragment_list, observed_fragment_list, all_compound_match  = ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, sEnergy_Bond_dict, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
-   # print peakmatch_list
+    total_fragment_list, observed_fragment_list, all_compound_match  = ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
+   # print "Exhaust done!"
     dInnerProduct_Intensity = 0
     dSum_Intensity = 0
     for each_peak in allPeaks_list :
@@ -32,9 +30,7 @@ def OwnScore(sEnergy_Bond_dict, allPeaks_list, current_mol, bBreakRing, precurso
         dSum_Intensity += each_peak[1]
     sAnnotation_list = []
     sAFT2_Info_list  = []
-    sAnnotation_list.append("m/z\tnormalized_int\trel_int\tH_added\tformula\tSMILES\types_bonds_cleaved\terror_Da")
     for i in range(len(allPeaks_list)) :
-        sCurrentAnnotation   = str(allPeaks_list[i][0])+"\t"+str(allPeaks_list[i][1])
         sAFT2_Info  = ""
         for each_measure_info in allPeaks_list[i] :
             sAFT2_Info += str(each_measure_info) + "\t"
@@ -46,15 +42,10 @@ def OwnScore(sEnergy_Bond_dict, allPeaks_list, current_mol, bBreakRing, precurso
             dErrorDa         = peakmatch_list[i][0][4]
             dSubScore        = peakmatch_list[i][0][6]
             dCurrentScore   += dSubScore
-            sCurrentAnnotation += "\t" + str(peakmatch_list[i][0][0]) + "\t" + str(peakmatch_list[i][0][1])+"\t"+str(peakmatch_list[i][0][2])
-            sCurrentAnnotation += "\t" + str(peakmatch_list[i][0][3]) + "\t" + str(peakmatch_list[i][0][4])
             sAFT2_Info += peakmatch_list[i][0][2] + "\t" + peakmatch_list[i][0][0] + "\t" + str(dErrorDa) + "\t" + str(peakmatch_list[i][0][8])
         else :
-            sCurrentAnnotation += "\tNA"
             sAFT2_Info += "NA\tNA\tNA\tNA"
-        sAnnotation_list.append(sCurrentAnnotation)
         sAFT2_Info_list.append(sAFT2_Info)
-    sOtherInfo = GenerateStatisticalInfo(peakmatch_list, iIdentifiedPeak, total_fragment_list, observed_fragment_list)
     if (bRankSum) :
         iUnIdentifiedPeak = len(allPeaks_list) - iIdentifiedPeak
         dCurrentScore = CalculateRankSumScore(all_compound_match, iUnIdentifiedPeak)
@@ -80,31 +71,7 @@ def CalculateRankSumScore(all_compound_match, iUnIdentifiedPeak) :
     dRankSumScore = math.fabs((iU - RankSumMean)/RankSumD)
     return (-1)*dRankSumScore
 
-def GenerateStatisticalInfo(peakmatch_list, iIdentifiedPeak, total_fragment_list, observed_fragment_list):
-    offset_type_list   = []
-    offset_number_list = []
-    for each_peakmatch in peakmatch_list:
-        if each_peakmatch :
-            current_offset_type = each_peakmatch[0][7]
-            if current_offset_type in offset_type_list :
-                offset_number_list[offset_type_list.index(current_offset_type)] += 1
-            else :
-                offset_type_list.append(current_offset_type)
-                offset_number_list.append(1)
-    sStatisticsInfo =  str(iIdentifiedPeak)+":"+str(len(peakmatch_list))+";"
-    for i in range(len(offset_type_list)) :
-        if (i>0):
-            sStatisticsInfo += ","
-        sStatisticsInfo += str(offset_type_list[i])+":"+str(offset_number_list[i])
-    sStatisticsInfo += ";"
-    for i in range(len(total_fragment_list)) :
-        if (i>0):
-            sStatisticsInfo += ","
-        sStatisticsInfo += str(observed_fragment_list[i])+":"+str(total_fragment_list[i])
-    
-    return sStatisticsInfo
-
-def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, peakmatch_list, sEnergy_Bond_dict, energy_denominator, bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_root) :
+def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_root) :
     root_node = [Chem.EditableMol(current_mol),[],0] # editable_mol,list of list of removed bonds, depth
     current_ring_bonds_list, current_linear_bonds_list = ClassifyBonds(root_node[0].GetMol(), bBreakRing)
     current_ringbonds_iter = itertools.combinations(current_ring_bonds_list, 2)
@@ -119,7 +86,7 @@ def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, 
     storedNodes = [[root_node, current_linear_bonds_list, current_ringbonds_combination_list, unprocessedKid, C_value, root_observed_status, dF_self]]
     while (len(storedNodes) > 0) :
         if (len(storedNodes[-1][3]) > 0) : # unprocessed kid
-            new_item = processKid(storedNodes[-1][3][0][0], storedNodes[-1][3][0][1], storedNodes[-1][0][2]+1, allPeaks_list, peakmatch_list, sEnergy_Bond_dict, energy_denominator, bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, storedNodes[-1][3][0][2], storedNodes[-1][4], storedNodes[-1][5], storedNodes[-1][6]) 
+            new_item = processKid(storedNodes[-1][3][0][0], storedNodes[-1][3][0][1], storedNodes[-1][0][2]+1, allPeaks_list, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, storedNodes[-1][3][0][2], storedNodes[-1][4], storedNodes[-1][5], storedNodes[-1][6]) 
             del storedNodes[-1][3][0]
             if (new_item[0][2] < iDepth) :
                 storedNodes.append(new_item)
@@ -151,48 +118,14 @@ def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, 
         else :
             del storedNodes[-1]
 
-def ExactBondsInfo(FragmentBonds_list, sEnergy_Bond_dict, energy_denominator, C_value,  dF_parent, C_self, parent_observed_status) :
+def ExactBondsInfo( dF_parent, C_self, parent_observed_status) :
     dF       = 1.0
-    dBDE     = 0
-    iNumBond = len(FragmentBonds_list)
-    if (iNumBond == 0) :
-        sBondType = "NA"
-    else :
-        sBondType = ""
-        for current_bond in FragmentBonds_list :
-            sBeginAtom = current_bond.GetBeginAtom().GetSymbol()
-            sEndAtom   = current_bond.GetEndAtom().GetSymbol()
-            sType      = str(current_bond.GetBondType())
-            if (sType == "SINGLE"):
-                sRepresentType = "-"
-            elif (sType == "DOUBLE"):
-                sRepresentType = "="
-            elif (sType == "TRIPLE"):
-                sRepresentType = "~"
-            #elif (sType == "AROMATIC"):
-            #    sRepresentType = "*"
-            else :
-                sRepresentType = "("+sType+")"
-            sCurrentBondType = sBeginAtom + sRepresentType + sEndAtom 
-            if sCurrentBondType in sEnergy_Bond_dict :
-                dCurrentBDE = sEnergy_Bond_dict[sCurrentBondType]
-                dBDE += dCurrentBDE
-            else :
-                dCurrentBDE = 348  #C-C
-                dBDE += dCurrentBDE
-            sBondType += sCurrentBondType + ","
-            dF = dF * ((1/dCurrentBDE)/energy_denominator)
-        sBondType = sBondType[:-1]
-    sAllBond = str(iNumBond)+"\t"+sBondType
-
-############################################
- #   dF = math.pow(0.2, len(FragmentBonds_list)-1)
- #   dF = math.pow(0.2, C_value)
+    
     if (parent_observed_status == 0) : # yes
         dF = math.pow(0.5, C_self) * dF_parent
     else :
         dF = math.pow(0.1, C_self) * dF_parent
-    return sAllBond, dBDE, dF
+    return  dF
 
 def mypnorm (dMean, dStandardDeviation, dRandomVariable) :
     dZScore = ( dRandomVariable - dMean ) / dStandardDeviation
@@ -205,23 +138,21 @@ def SubScore(dIntensity, dErrorDa, dF, dMass_Tolerance_Fragment_Ions, current_mz
     dSubScore = dIntensity * dErrorScore * dF
     return dSubScore
 
-def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, FragmentBonds_list, sEnergy_Bond_dict, energy_denominator, precursor_type, total_fragment_list, observed_fragment_list, current_depth, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_value, dF_parent, C_self, parent_observed_status) :
+def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, FragmentBonds_list,  precursor_type, total_fragment_list, observed_fragment_list, current_depth, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_value, dF_parent, C_self, parent_observed_status) :
 #    print iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list
     total_fragment_list[current_depth] += 1
     z_list = [1] 
     if  (precursor_type == 1) :
-#        mz_windows_list = [-1, 0, 1, 2]
         mz_windows_list = iPositive_Ion_Fragment_Mass_Windows_list
     else :
-#        mz_windows_list = [-2, -1, 0, 1, 2]
         mz_windows_list = iNegative_Ion_Fragment_Mass_Windows_list
     #print mz_windows_list
-    #dMass_Tolerance_Fragment_Ions = 0.01
-#    print dMass_Tolerance_Fragment_Ions
     dHMass = 1.007825
     bFindPeak = False
     observed_status = 1
-    sBondInfo, dBDE, dF = ExactBondsInfo(FragmentBonds_list, sEnergy_Bond_dict, energy_denominator, C_value,  dF_parent, C_self, parent_observed_status)
+    dBDE = 0
+    sBondInfo = ""
+    dF = ExactBondsInfo( dF_parent, C_self, parent_observed_status)
     for i in range(len(allPeaks_list)) :
         each_peak = allPeaks_list[i]
         dMeasuredMZ = each_peak[0]
@@ -239,7 +170,7 @@ def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormu
                     else :
                         old_dSubScore = peakmatch_list[i][0][6]
                         if (dSubScore > old_dSubScore) :
-                            peakmatch_list[i][0]=current_newmatch
+                           peakmatch_list[i][0]=current_newmatch
                     bFindPeak = True
                     break
     return bFindPeak, dBDE, observed_status, dF
@@ -291,12 +222,12 @@ def RemoveBonds(current_mol, bonds_list) :
     return current_fragments_list, bValidOperation
 
 
-def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, allPeaks_list, peakmatch_list, sEnergy_Bond_dict, energy_denominator, bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_self, C_parent, parent_observed_status, dF_parent) :
+def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, allPeaks_list, peakmatch_list,   bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_self, C_parent, parent_observed_status, dF_parent) :
     #print current_editable_mol
     C_value = C_self * parent_observed_status + C_parent
     current_mol = current_editable_mol.GetMol()
     current_dMass, current_sFragmentFormula, current_smiles=DumpOneFragment(current_mol, current_removebond_list)
-    bFindPeak, dCurrentFragmentBDE, observed_status, dF_self  = MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, current_removebond_list, sEnergy_Bond_dict, energy_denominator, precursor_type, total_fragment_list, observed_fragment_list, iCurrent_depth, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_value, dF_parent, C_self, parent_observed_status)
+    bFindPeak, dCurrentFragmentBDE, observed_status, dF_self  = MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, current_removebond_list,  precursor_type, total_fragment_list, observed_fragment_list, iCurrent_depth, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_value, dF_parent, C_self, parent_observed_status)
     all_compound_match.append([bFindPeak, dCurrentFragmentBDE])
     current_ring_bonds_list, current_linear_bonds_list = ClassifyBonds(current_mol, bBreakRing)
     current_ringbonds_iter = itertools.combinations(current_ring_bonds_list, 2)
@@ -306,39 +237,11 @@ def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, al
     new_item = [[current_editable_mol, current_removebond_list, iCurrent_depth], current_linear_bonds_list, current_ringbonds_combination_list, unprocessedKid, C_value, observed_status, dF_self]
     return new_item
 
-def CalculateEnergyDenominator(current_mol, sEnergy_Bond_dict) :
-    energy_denominator = 0
-    iBondsNum = current_mol.GetNumBonds()
-    for i in range(iBondsNum) :
-        current_bond = current_mol.GetBondWithIdx(i)
-        sBeginAtom = current_bond.GetBeginAtom().GetSymbol()
-        sEndAtom   = current_bond.GetEndAtom().GetSymbol()
-        sType      = str(current_bond.GetBondType())
-        if (sType == "SINGLE"):
-            sRepresentType = "-"
-        elif (sType == "DOUBLE"):
-            sRepresentType = "="
-        elif (sType == "TRIPLE"):
-            sRepresentType = "~"
-        #elif (sType == "AROMATIC"):
-        #    sRepresentType = "*"
-        else :
-            sRepresentType = "("+sType+")"
-        sCurrentBondType = sBeginAtom + sRepresentType + sEndAtom 
-        if sCurrentBondType in sEnergy_Bond_dict :
-            dCurrentBDE = sEnergy_Bond_dict[sCurrentBondType]
-        else :
-            dCurrentBDE = 348  #C-C
-        energy_denominator += 1.0/dCurrentBDE
-    if (energy_denominator == 0 ):
-        energy_denominator = 1
-    return energy_denominator
 
-def ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, sEnergy_Bond_dict, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list) :
+def ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list) :
     total_fragment_list = [0 for i in range(4)]
     observed_fragment_list = [0 for i in range(4) ]
     all_compound_match = []
-    energy_denominator = CalculateEnergyDenominator(current_mol, sEnergy_Bond_dict)
     
     current_sFragmentFormula = AllChem.CalcMolFormula(current_mol)
     current_smiles = Chem.MolToSmiles(current_mol)
@@ -346,10 +249,8 @@ def ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, sEnergy_Bond_dict, 
     dF_self = 1.0
     root_observed_status = 0
     bRootFragment = True
-    bFindPeak, dCurrentFragmentBDE, root_observed_status, dF_self = MapMass(Descriptors.ExactMolWt(current_mol), allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, [],sEnergy_Bond_dict, energy_denominator, precursor_type, total_fragment_list,  observed_fragment_list, 0, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, 0, 1, 0, 0)
+    bFindPeak, dCurrentFragmentBDE, root_observed_status, dF_self = MapMass(Descriptors.ExactMolWt(current_mol), allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, [],   precursor_type, total_fragment_list,  observed_fragment_list, 0, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, 0, 1, 0, 0)
     all_compound_match.append([bFindPeak, dCurrentFragmentBDE])
     iBondsNum = current_mol.GetNumBonds()
-    #TreeLikeBreakBonds(current_mol, iBondsNum, allPeaks_list, 3, peakmatch_list)
-    TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iFragmentation_Depth, peakmatch_list, sEnergy_Bond_dict, energy_denominator, bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_self)
-
+    TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iFragmentation_Depth, peakmatch_list,   bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_self)
     return total_fragment_list, observed_fragment_list, all_compound_match
