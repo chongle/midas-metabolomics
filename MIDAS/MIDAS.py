@@ -104,6 +104,7 @@ def ReadCompoundFile(compound_filename) :
         if ((each_line == "") or (each_line.startswith("#"))) :
             continue
         current_compound_info = each_line.split("\t")
+    # format check
         if (len(current_compound_info) != 4) :
             print "illegal compound", each_line
             sys.exit(1)
@@ -122,7 +123,7 @@ def HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, proce
    
     #This function has the multi-processing part
 
-    dProtonMass = 1.007825 # proton mass
+    #dProtonMass = 1.007825 # proton mass
     mypool = Pool(processes=process_number)
     compound_list = ReadCompoundFile(compound_filename)
     manager = multiprocessing.Manager() 

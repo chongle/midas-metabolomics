@@ -13,12 +13,9 @@ from rdkit.Chem import AllChem
 
 
 def OwnScore( allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, dMass_Tolerance_Fragment_Ions,iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list):
-#    global dMass_Tolerance_Fragment_Ions
-#    dMass_Tolerance_Fragment_Ions = 0.01
-#    print iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list
-    sOtherInfo = ""
+    sOtherInfo = ""  # won't get real value in the current version
     dCurrentScore = 0
-    dCurrentEnergy = 0
+    dCurrentEnergy = 0 # won't get real value in the current version
     iIdentifiedPeak= 0
     peakmatch_list = [[] for each_peak in allPeaks_list]
     total_fragment_list, observed_fragment_list, all_compound_match  = ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
@@ -46,12 +43,13 @@ def OwnScore( allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, 
         else :
             sAFT2_Info += "NA\tNA\tNA\tNA"
         sAFT2_Info_list.append(sAFT2_Info)
-    if (bRankSum) :
+    if (bRankSum) : # RankSum mode won't be picked in the current version
         iUnIdentifiedPeak = len(allPeaks_list) - iIdentifiedPeak
         dCurrentScore = CalculateRankSumScore(all_compound_match, iUnIdentifiedPeak)
     return dCurrentScore, dCurrentEnergy, iIdentifiedPeak, sAnnotation_list, sOtherInfo, sAFT2_Info_list
 
 def CalculateRankSumScore(all_compound_match, iUnIdentifiedPeak) :
+    # this function calculate the ranksum score, which won't be used in the current version
     iU = 0
     iUnobservedCompound = 0
     all_compound_match.sort(key=lambda e:e[1])
@@ -72,19 +70,21 @@ def CalculateRankSumScore(all_compound_match, iUnIdentifiedPeak) :
     return (-1)*dRankSumScore
 
 def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_root) :
+    # This function conducts a Depth-first search 
     root_node = [Chem.EditableMol(current_mol),[],0] # editable_mol,list of list of removed bonds, depth
     current_ring_bonds_list, current_linear_bonds_list = ClassifyBonds(root_node[0].GetMol(), bBreakRing)
     current_ringbonds_iter = itertools.combinations(current_ring_bonds_list, 2)
     current_ringbonds_combination_list = list(current_ringbonds_iter)
     unprocessedKid = []
+# dF_self is S(F) of the current fragment
     dF_self = dF_root
-    #dF_self = 1.0
+#C_vlaue is not really used in the current version
     C_value = 0
-    #C_self  = 0
-    #root_observed_status = 1 # 1 no 0 yes
-    # print "ee"
+    
+    #storedNodes is a list containing unprocessed fragments
     storedNodes = [[root_node, current_linear_bonds_list, current_ringbonds_combination_list, unprocessedKid, C_value, root_observed_status, dF_self]]
     while (len(storedNodes) > 0) :
+        #check the last fragment, if it has unproecessed kid, deal with it, otherwise generate new kid. If even no new kids, delete this fragment
         if (len(storedNodes[-1][3]) > 0) : # unprocessed kid
             new_item = processKid(storedNodes[-1][3][0][0], storedNodes[-1][3][0][1], storedNodes[-1][0][2]+1, allPeaks_list, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, storedNodes[-1][3][0][2], storedNodes[-1][4], storedNodes[-1][5], storedNodes[-1][6]) 
             del storedNodes[-1][3][0]
@@ -119,6 +119,9 @@ def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, 
             del storedNodes[-1]
 
 def ExactBondsInfo( dF_parent, C_self, parent_observed_status) :
+    #dF is S(F), C_self is the number of cleaved bonds from the parent fragment to the current fragment
+    #C_self = 0, if the current fragment is the original compound; C_self = 1 for breaking linear bond case; C_self = 2 for breaking ring bonds case
+
     dF       = 1.0
     
     if (parent_observed_status == 0) : # yes
@@ -139,7 +142,7 @@ def SubScore(dIntensity, dErrorDa, dF, dMass_Tolerance_Fragment_Ions, current_mz
     return dSubScore
 
 def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, FragmentBonds_list,  precursor_type, total_fragment_list, observed_fragment_list, current_depth, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_value, dF_parent, C_self, parent_observed_status) :
-#    print iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list
+    # claculate score in this function
     total_fragment_list[current_depth] += 1
     z_list = [1] 
     if  (precursor_type == 1) :
@@ -149,9 +152,9 @@ def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormu
     #print mz_windows_list
     dHMass = 1.007825
     bFindPeak = False
-    observed_status = 1
-    dBDE = 0
-    sBondInfo = ""
+    observed_status = 1 # 0 for observed; 1 for not
+    dBDE = 0 # won't have real value in the current version
+    sBondInfo = "" # won't have real value in the current version
     dF = ExactBondsInfo( dF_parent, C_self, parent_observed_status)
     for i in range(len(allPeaks_list)) :
         each_peak = allPeaks_list[i]
@@ -177,21 +180,14 @@ def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormu
 
 
 def DumpOneFragment(current_fragment_mol, FragmentBonds_list) :
+    # retrieve mass, formula, and smile of a fragment 
     current_dMass    = Descriptors.ExactMolWt(current_fragment_mol)
     current_sFragmentFormula = AllChem.CalcMolFormula(current_fragment_mol)
-    sBondsTypes = "{"
-    for current_bond in FragmentBonds_list :
-        if (sBondsTypes != "{") :
-            sBondsTypes += ","
-        sBondsTypes += str(current_bond.GetBondType())
-    sBondsTypes += "}"
-    #current_SanitizedMol = Chem.SanitizeMol(current_fragment_mol)
-    #current_inchi =  Chem.MolToInchi(current_fragment_mol)
     current_smiles=  Chem.MolToSmiles (current_fragment_mol)
-    #print current_dMass, current_sFragmentFormula, sBondsTypes, current_smiles
     return current_dMass, current_sFragmentFormula, current_smiles
 
 def ClassifyBonds(current_mol, bBreakRing) :
+    # classify ring bonds and linear bonds
     ring_bonds_list   = []
     linear_bonds_list = []
     iBondsNum = current_mol.GetNumBonds() 
@@ -205,7 +201,7 @@ def ClassifyBonds(current_mol, bBreakRing) :
     return ring_bonds_list, linear_bonds_list
 
 def RemoveBonds(current_mol, bonds_list) :
-   # print len( Chem.GetMolFrags(current_mol, asMols=True)  )
+    # split the current fragment by breaking one linear bond or two ring bonds
     em = Chem.EditableMol(current_mol)
     for each_removable_bond in bonds_list :
         idx_beginAtom = each_removable_bond.GetBeginAtomIdx()
@@ -213,7 +209,8 @@ def RemoveBonds(current_mol, bonds_list) :
         em.RemoveBond(idx_beginAtom, idx_endAtom)
     current_modified_mol = em.GetMol()
     current_fragments_list = Chem.GetMolFrags(current_modified_mol, asMols=True, sanitizeFrags=False)
-    #print len(current_fragments_list)
+    # After removing one linear bond, or two ring bonds, we expect to see two new fragments, and we don't accept other cases 
+# e.g., if we have more than two new fragments, or only one fragment (it could happen after two ring bonds are removed), we don't accept these bad cases. 
     if len(current_fragments_list) == 2 :
         bValidOperation = True
     else :
@@ -223,7 +220,8 @@ def RemoveBonds(current_mol, bonds_list) :
 
 
 def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, allPeaks_list, peakmatch_list,   bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_self, C_parent, parent_observed_status, dF_parent) :
-    #print current_editable_mol
+    # This function score a fragment by calling MapMass. Also this function preprocess a fragment for generating kids
+    #C_value is not used in the current version
     C_value = C_self * parent_observed_status + C_parent
     current_mol = current_editable_mol.GetMol()
     current_dMass, current_sFragmentFormula, current_smiles=DumpOneFragment(current_mol, current_removebond_list)
@@ -245,10 +243,11 @@ def ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precurso
     
     current_sFragmentFormula = AllChem.CalcMolFormula(current_mol)
     current_smiles = Chem.MolToSmiles(current_mol)
-#    print Descriptors.ExactMolWt(current_mol), "NULL", AllChem.CalcMolFormula(current_mol)
+    # dF_self S(F) of current fragment
     dF_self = 1.0
-    root_observed_status = 0
+    root_observed_status = 0 # initialization, 0 observed, 1 not
     bRootFragment = True
+    #calculate score of the original compound (root fragment)
     bFindPeak, dCurrentFragmentBDE, root_observed_status, dF_self = MapMass(Descriptors.ExactMolWt(current_mol), allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, [],   precursor_type, total_fragment_list,  observed_fragment_list, 0, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, 0, 1, 0, 0)
     all_compound_match.append([bFindPeak, dCurrentFragmentBDE])
     iBondsNum = current_mol.GetNumBonds()

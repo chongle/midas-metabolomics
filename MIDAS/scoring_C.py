@@ -12,6 +12,7 @@ import weightedscore
 
 
 def BinarySearch_Upper(target_list, bounder_value):
+    # return the upper bound of the index range
     ele_num = len(target_list)
     upper_index = ele_num-1
     if (target_list[upper_index] < bounder_value):
@@ -25,7 +26,8 @@ def BinarySearch_Upper(target_list, bounder_value):
             upper_index = middle_index
         else :
             lower_index = middle_index
-
+    # upper_index is the index of element with value just higher than the upper bound
+    # lower_index is the index of element with value just lower than the upper bound
     return lower_index
     
 def BinarySearch_Lower(target_list, bounder_value):
@@ -42,6 +44,8 @@ def BinarySearch_Lower(target_list, bounder_value):
             upper_index = middle_index
         else :
             lower_index = middle_index
+    #upper_index is the index of element with value just higher than the lower bound
+    #lower_index is the index of element with value just lower than the lower bound
     return upper_index
 
 def GetRelatedCompound(Compound_list, precursor_mz, precursor_accuracy):
@@ -67,44 +71,6 @@ def NormalizeIntensity(allPeaks_list) :
 #        allPeaks_list[i][1] = 1
     return allPeaks_list
 
-def RankScores(Compound_Scores_list, output_filename, bSpectrumDetails, sRealInchi) :
-    sCoreName = os.path.splitext(os.path.basename(output_filename))[0]
-    if (sCoreName.endswith("output")) :
-        sCoreName = os.path.splitext(sCoreName)[0]
-    Compound_Scores_list.sort(key=lambda e:e[0], reverse=True)
-    ID_list = [each_compound_score[3] for each_compound_score in Compound_Scores_list ]
-    realhit_index = ID_list.index(sRealInchi) 
-    realhit_score = Compound_Scores_list[realhit_index][0]
-   # print realhit_score
-    output_str = "" 
-    iRealhitRank = 0
-    current_rank = 1
-    for i in range(len(Compound_Scores_list)):
-        dCurrentScore = Compound_Scores_list[i][0]
-        if (i==0) :
-            current_rank = 1
-            dPreviousScore = dCurrentScore
-        else :
-            if (dCurrentScore < dPreviousScore):
-                current_rank = i+1
-            dCurrentScore = dPreviousScore
-        if (i == realhit_index) :
-            iRealhitRank = current_rank
-            #print iRealhitRank
-        output_str +=str(current_rank)
-        for each_item in Compound_Scores_list[i][:-1] :
-            output_str += "\t"+str(each_item)
-        output_str += "\n"
-        if (bSpectrumDetails) :
-            for each_annontation in Compound_Scores_list[i][-1] :
-                output_str += each_annontation + "\n"
-   # print sCoreName
-   # print ">"+str(iRealhitRank)+"\t"+sCoreName+"\n"
-    output_file = open(output_filename, "w")
-    output_file.write(">"+str(iRealhitRank)+"\t"+sCoreName+"\n")
-    output_file.write(output_str)
-    output_file.close()
-
 
 def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename):
     #print sCurrentScanNumber
@@ -112,25 +78,29 @@ def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dC
     Compound_Scores_list = []
     allPeaks_list = NormalizeIntensity(current_peaks_list)
     QueryCompound_list = GetRelatedCompound(Compound_list, dCurrentParentMass, precursor_accuracy)
+    # Compounds satisfied with precursor mass range are saved in QueryCompound_list 
     #print len(QueryCompound_list)
     for each_compound in QueryCompound_list :
         current_mol = Chem.MolFromInchi(each_compound[1])
         current_fragments_list = Chem.GetMolFrags(current_mol, asMols=True, sanitizeFrags=False)
         if (len(current_fragments_list) != 1) :
             continue
+        # get scores. dCurrentEnergy and sOtherInfo don't have valid value in the current version
         dCurrentScore, dCurrentEnergy, iIdentifiedPeak, sAnnotation_list, sOtherInfo, sAFT2_Info_list= weightedscore.OwnScore( allPeaks_list, current_mol, bBreakRing, dCurrentPrecursor_type, bRankSum, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
         if (dCurrentPrecursor_type == 1) :
             sScanType = "PositiveIon"
         else :
             sScanType = "NegativeIon"
         Compound_Scores_list.append([dCurrentScore, dCurrentEnergy, each_compound[0], each_compound[1], each_compound[3], iIdentifiedPeak, sOtherInfo, sAnnotation_list, sScanType, each_compound[2], each_compound[4], sAFT2_Info_list])
-    #RankScores(Compound_Scores_list, output_filename, bSpectrumDetails, s_chemical_structure)
     iPeakNum = len(allPeaks_list)
     Compound_Scores_list.sort(key=lambda e:e[0], reverse=True)
     #print "aa"
     output_str = ""
     annotation_str = ""
+    dPreviousScore = 1000 # initial score is bigger than any real scores
+    dCurrentRank   = 1
     for i in range(len(Compound_Scores_list)) :
+        # here we output top 5 candidates
         if (i>=5):
             break
     #    print sCurrentScanNumber, i 
@@ -145,8 +115,13 @@ def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dC
         sLinks = each_compound_info[4]
         iIdentifiedPeak = each_compound_info[5]
         dCurrentScore = each_compound_info[0]
-        output_str += sFT2_basename + "\t" + sCurrentScanNumber + "\t"+str(dPrecursorMofZ)+"\t"+sRetentionTime+"\t" + sScanType + "\t" + str(i+1) + "\t" + str(dParentMassError) + "\t"
-        annotation_str += "M\t" + sFT2_basename + "\t" + sCurrentScanNumber + "\t"+str(dPrecursorMofZ)+"\t"+sRetentionTime+"\t" + sScanType + "\t" + str(i+1) + "\t" + str(dParentMassError) + "\t"
+
+        if (dCurrentScore < dPreviousScore) or (i==0):
+            dCurrentRank  = i+1
+            dPreviousScore = dCurrentScore
+
+        output_str += sFT2_basename + "\t" + sCurrentScanNumber + "\t"+str(dPrecursorMofZ)+"\t"+sRetentionTime+"\t" + sScanType + "\t" + str(dCurrentRank) + "\t" + str(dParentMassError) + "\t"
+        annotation_str += "M\t" + sFT2_basename + "\t" + sCurrentScanNumber + "\t"+str(dPrecursorMofZ)+"\t"+sRetentionTime+"\t" + sScanType + "\t" + str(dCurrentRank) + "\t" + str(dParentMassError) + "\t"
 
         output_str += str(iIdentifiedPeak)+">"+str(iPeakNum)+"\t"+str(dCurrentScore)+"\t"+sIdentifier+"\t"+sName+"\t"+sOriginalInChI+"\t"
         annotation_str += str(iIdentifiedPeak)+">"+str(iPeakNum)+"\t"+str(dCurrentScore)+"\t"+sIdentifier+"\t"+sName+"\t"+sOriginalInChI+"\t"
@@ -159,14 +134,18 @@ def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dC
    #     print dCurrentScore
 
     mylock.acquire()
+    #sequential part to avoid writing conflict
+    #meb file
     Output_File = open(sOutput_Filename, "a")
     Output_File.write(output_str)
     Output_File.close()
+    #AFT2 file
     Annotation_File = open(sAnnotation_Filename, "a")
     Annotation_File.write(annotation_str)
     Annotation_File.close()
     #print sCurrentScanNumber
     mylock.release()
+    #end of sequential part
 
 
 
