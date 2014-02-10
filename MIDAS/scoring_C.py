@@ -12,7 +12,9 @@ import weightedscore
 
 
 def BinarySearch_Upper(target_list, bounder_value):
-    # return the upper bound of the index range
+# This function returns the index of element with value just lower than the upper bound
+# or -1 if no element
+#target_list: list of elements; bounder_value: upper bound value
     ele_num = len(target_list)
     upper_index = ele_num-1
     if (target_list[upper_index] < bounder_value):
@@ -31,6 +33,9 @@ def BinarySearch_Upper(target_list, bounder_value):
     return lower_index
     
 def BinarySearch_Lower(target_list, bounder_value):
+# This function returns the index of element with value just higher than or equal to the lower bound
+# or -1 if no element
+# target_list: list of elements; bounder_value: lower bound value
     ele_num = len(target_list)
     upper_index = ele_num-1
     if (target_list[upper_index] < bounder_value):
@@ -44,20 +49,19 @@ def BinarySearch_Lower(target_list, bounder_value):
             upper_index = middle_index
         else :
             lower_index = middle_index
-    #upper_index is the index of element with value just higher than the lower bound
+    #upper_index is the index of element with value just higher than or equal to the lower bound
     #lower_index is the index of element with value just lower than the lower bound
     return upper_index
 
-def GetRelatedCompound(Compound_list, precursor_mz, precursor_accuracy):
+def GetRelatedCompound(Compound_list, dPrecursor_mass, precursor_accuracy):
+#This funtion conducts binary search and returns a list compounds whose precursor masses are within the mass range
+#Compound_list: list of all compounds from the databass; dPrecursor_mass:scan precursor mass; precursor_accuracy: max mass error allowed for precursor mass
+
     compound_mass_list = [each_compound[2] for each_compound in Compound_list]
-#    print compound_mass_list
-    upper_compound_mass = precursor_mz + precursor_accuracy
-    lower_compound_mass = precursor_mz - precursor_accuracy
-#    print upper_compound_mass, lower_compound_mass
+    upper_compound_mass = dPrecursor_mass + precursor_accuracy
+    lower_compound_mass = dPrecursor_mass - precursor_accuracy
     upper_compound_index=BinarySearch_Upper(compound_mass_list, upper_compound_mass)
-    #print upper_compound_index, compound_mass_list[upper_compound_index], upper_compound_mass, compound_mass_list[upper_compound_index+1]
     lower_compound_index=BinarySearch_Lower(compound_mass_list, lower_compound_mass)
-    #print lower_compound_index, compound_mass_list[lower_compound_index-1], lower_compound_mass, compound_mass_list[lower_compound_index] 
     QueryCompound_list = []
     if ((lower_compound_index != -1) and (upper_compound_index != -1)) :
         QueryCompound_list = Compound_list[lower_compound_index : upper_compound_index+1]
@@ -73,7 +77,9 @@ def NormalizeIntensity(allPeaks_list) :
 
 
 def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename):
-    #print sCurrentScanNumber
+# This funtion manages how to preprocess compound and MS/MS data and send them to be scored
+# Compound_list: list of compounds from the database; sOutput_Filename: output file (.meb) name; bSpectrumDetails: not used in the current version; bBreakRing: whether break ring bonds; dCurrentPrecursor_type: precursor type 1 positive, otherwise negative; bRankSum: not used in the current version, always false; dCurrentParentMass: precursor mass; current_peaks_list: list of peaks of the current scan; sCurrentScanNumber: scan id; mylock: lock for synchronization; iParentMassWindow_list: parent mass window; dMass_Tolerance_Parent_Ion: max error allowed for precursor mass; dMass_Tolerance_Fragment_Ions: max error allowed for fragment mass; iFragmentation_Depth: max search depth of the depth search of the fragmentation tree; sFT2_basename: base name of the FT2 file; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode; dPrecursorMofZ: precursor m of z; sRetentionTime: string containing retention time; sAnnotation_Filename: annotation file name.
+    
     precursor_accuracy = dMass_Tolerance_Parent_Ion
     Compound_Scores_list = []
     allPeaks_list = NormalizeIntensity(current_peaks_list)

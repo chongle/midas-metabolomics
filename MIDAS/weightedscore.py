@@ -13,6 +13,11 @@ from rdkit.Chem import AllChem
 
 
 def OwnScore( allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, dMass_Tolerance_Fragment_Ions,iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list):
+# This function manage to score a a given compound against a given scan
+# allPeaks_list: list of peaks; current_mol: mol of the original given compound; bBreakRing: whether break ring bonds; precursor_type: precursor type 1 is positive, otherwise, negative; bRankSum: always false; dMass_Tolerance_Fragment_Ions: max mass error allowed for fragment mass ; iFragmentation_Depth : max depth in the depth-first search of the fragmentation tree; iParentMassWindow_list: parent mass window; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list : fragment mass window under negative mode
+# This function manage to score a a given compound against a given scan
+# return value
+# dCurrentScore: score of the compound; dCurrentEnergy: not used in the current version; iIdentifiedPeak: number of peaks identified; sAnnotation_list: not used in the current version ; sOtherInfo :not used in the current version; sAFT2_Info_list: list of strings for annotation file (.AFT2).
     sOtherInfo = ""  # won't get real value in the current version
     dCurrentScore = 0
     dCurrentEnergy = 0 # won't get real value in the current version
@@ -70,7 +75,10 @@ def CalculateRankSumScore(all_compound_match, iUnIdentifiedPeak) :
     return (-1)*dRankSumScore
 
 def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_root) :
-    # This function conducts a Depth-first search 
+
+# This function conducts a Depth-first search. Before reaching the max depth, a fragment will be tried to generate new fragments by breaking linear bond or ring bonds. Each time, two new fragments are generated, one will be processed soon, another will be put in the unprocesedkid filed. If a fragment can't generate new fragments, it will be deleted from the data structure.
+#current_mol: original compound mol (mol is a data structure used in RDKit for representing a compound or fragment); iBondsNum: total number of bonds; allPeaks_list: list of peak information; iDepth: max depth in the depth-first search of the fragmentation tree; peakmatch_list: list of peak match information ; bBreakRing: whether break ring bonds; precursor_type: 1 positive precursor, -1 negative; total_fragment_list: not used in the current version; observed_fragment_list: not used in the current version; all_compound_match: not used in the current version; dMass_Tolerance_Fragment_Ions: max mass error for fragment when it is against a peak; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode; root_observed_status: 0 original compound is obersved, 1 not; dF_root: expected intensity of the original compound 
+
     root_node = [Chem.EditableMol(current_mol),[],0] # editable_mol,list of list of removed bonds, depth
     current_ring_bonds_list, current_linear_bonds_list = ClassifyBonds(root_node[0].GetMol(), bBreakRing)
     current_ringbonds_iter = itertools.combinations(current_ring_bonds_list, 2)
@@ -119,7 +127,7 @@ def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, 
             del storedNodes[-1]
 
 def ExactBondsInfo( dF_parent, C_self, parent_observed_status) :
-    #dF is S(F), C_self is the number of cleaved bonds from the parent fragment to the current fragment
+    #dF is expected intensity; dF_parent is the expected intensity of the fragment;parent_observed_status: 1 parent fragment is observed, 0 not;C_self is the number of cleaved bonds from the parent fragment to the current fragment
     #C_self = 0, if the current fragment is the original compound; C_self = 1 for breaking linear bond case; C_self = 2 for breaking ring bonds case
 
     dF       = 1.0
@@ -131,18 +139,26 @@ def ExactBondsInfo( dF_parent, C_self, parent_observed_status) :
     return  dF
 
 def mypnorm (dMean, dStandardDeviation, dRandomVariable) :
+# calculate the probability of a value given mean and standard deviation under normal distribution
+#dMean: mean value;  dStandardDeviation: standard deviation; dRandomVariable: value of the random variable
     dZScore = ( dRandomVariable - dMean ) / dStandardDeviation
     dProbability = 0.5 * math.erfc( -1 * dZScore / math.sqrt( 2.0 ) )
     return dProbability
 
 def SubScore(dIntensity, dErrorDa, dF, dMass_Tolerance_Fragment_Ions, current_mz_offset):
+#This function calculate the subscore between a fragment against a peak, returns the subscore
+#dIntensity: peak intensity; dErrorDa: mass difference between peak and fragment; dF: expected intensity; dMass_Tolerance_Fragment_Ions: max mass error allowed for the difference between a fragment and a peak; current_mz_offset: offset value;
     dSubScore = 0
     dErrorScore = ( 1.0 - mypnorm( 0, ( dMass_Tolerance_Fragment_Ions / 2.0), math.fabs( dErrorDa  ) ) ) * 2.0
     dSubScore = dIntensity * dErrorScore * dF
     return dSubScore
 
 def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, FragmentBonds_list,  precursor_type, total_fragment_list, observed_fragment_list, current_depth, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_value, dF_parent, C_self, parent_observed_status) :
-    # claculate score in this function
+# claculate score in this function. This function tries to match a fragment against peaks. If a peak has more than one matches, choose the fragment with highest score
+#current_dMass: mass of the current fragment; allPeaks_list: all peaks information; peakmatch_list: list of peak match information; current_sFragmentFormula: formula of the current fragment ; current_smiles: smiles of the current fragment; FragmentBonds_list: bonds broken for generating the current fragment from the original compound;  precursor_type: 1 positive precursor, -1 negative; total_fragment_list: not used in the current version; observed_fragment_list: not used in the current version; current_depth: current depth of the fragmentation in the fragmentation tree; dMass_Tolerance_Fragment_Ions: max mass error allowed for the fragment; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode; C_value: not used in the current version; dF_parent: expected intensity of the parent fragment; C_self : the number of cleaved bonds from the parent fragment to the current fragment; parent_observed_status: 0 parent fragment is observed, 1 not
+# claculate score in this function. This function tries to match a fragment against peaks. If a peak has more than one matches, choose the fragment with highest score
+#return value
+#bFindPeak: whether at least one peak matches this fragment; dBDE: not used in the current version; observed_status: 0 this fragment is observed, 1 not ; dF: expected intensity
     total_fragment_list[current_depth] += 1
     z_list = [1] 
     if  (precursor_type == 1) :
@@ -180,7 +196,8 @@ def MapMass(current_dMass, allPeaks_list, peakmatch_list, current_sFragmentFormu
 
 
 def DumpOneFragment(current_fragment_mol, FragmentBonds_list) :
-    # retrieve mass, formula, and smile of a fragment 
+# current_fragment_mol: mol of current fragment; FragmentBonds_list: bonds broken for generating the current fragment from the original compound, it is not used in this function 
+    # returns  mass (current_dMass), formula (current_smiles), and smile of a fragment (current_sFragmentFormula)
     current_dMass    = Descriptors.ExactMolWt(current_fragment_mol)
     current_sFragmentFormula = AllChem.CalcMolFormula(current_fragment_mol)
     current_smiles=  Chem.MolToSmiles (current_fragment_mol)
@@ -188,6 +205,8 @@ def DumpOneFragment(current_fragment_mol, FragmentBonds_list) :
 
 def ClassifyBonds(current_mol, bBreakRing) :
     # classify ring bonds and linear bonds
+# current_mol: the mol of current fragment; bBreakRing: whether consider ring bonds
+#ring_bonds_list: list of ring bonds; linear_bonds_list: list of linear bonds.
     ring_bonds_list   = []
     linear_bonds_list = []
     iBondsNum = current_mol.GetNumBonds() 
@@ -202,6 +221,9 @@ def ClassifyBonds(current_mol, bBreakRing) :
 
 def RemoveBonds(current_mol, bonds_list) :
     # split the current fragment by breaking one linear bond or two ring bonds
+# current_mol: current fragment mol;  bonds_list: list of bonds, which should be broken (1 linear bond or 2 ring bonds)
+# return values
+# current_fragments_list: new generated fragments; bValidOperation : whether fragments generated this time are valid, if generated exactly 2, yes, otherwise, invalid.
     em = Chem.EditableMol(current_mol)
     for each_removable_bond in bonds_list :
         idx_beginAtom = each_removable_bond.GetBeginAtomIdx()
@@ -219,9 +241,12 @@ def RemoveBonds(current_mol, bonds_list) :
     return current_fragments_list, bValidOperation
 
 
-def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, allPeaks_list, peakmatch_list,   bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_self, C_parent, parent_observed_status, dF_parent) :
+def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, allPeaks_list, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, C_self, C_parent, parent_observed_status, dF_parent) :
     # This function score a fragment by calling MapMass. Also this function preprocess a fragment for generating kids
     #C_value is not used in the current version
+#current_editable_mol: the fragment mol; current_removebond_list: list of bonds broken for generating the current fragment; iCurrent_depth: depth of the current fragment in the fragmentation tree; allPeaks_list: list of peaks in the scan; peakmatch_list: peak match info, store subscore information;   bBreakRing: whether break ring bonds; precursor_type: 1 positive precursor, otherwise negative; total_fragment_list: not used in the current version; observed_fragment_list: not used in the current version; all_compound_match: not used in the current version; dMass_Tolerance_Fragment_Ions: max mass error allowed for a fragment; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode; C_self: the number of cleaved bonds from the parent fragment to the current fragment; C_parent : C_self of the parent fragment;  parent_observed_status: 0 parent fragment observed, 1 not; dF_parent: the expected intensity of parent fragment
+#This function turns a processed fragment
+# current_editable_mol: the fragment mol; current_removebond_list: bonds broken for generating the current fragment; iCurrent_depth : the depth of the current fragment in the fragmentation tree; current_linear_bonds_list: linear bonds of the current fragment; current_ringbonds_combination_list: put 2 ring bonds together as a combination, the list of these combinations; unprocessedKid: unprocessed new fragment; C_value: not used in the current version; observed_status: 0, the current fragment is observed, 1 not; dF_self: the expected intensity of the current fragment.
     C_value = C_self * parent_observed_status + C_parent
     current_mol = current_editable_mol.GetMol()
     current_dMass, current_sFragmentFormula, current_smiles=DumpOneFragment(current_mol, current_removebond_list)
@@ -237,6 +262,10 @@ def processKid(current_editable_mol, current_removebond_list, iCurrent_depth, al
 
 
 def ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list) :
+# This function manages to calculate subscores of each peak. subscore information are stored in peakmatch_list
+# current_mol: mol of the compound; allPeaks_list: list of peaks ; peakmatch_list: store subscore and related information of each peak; bBreakRing : whether break ring bonds; precursor_type: 1 positive precursor, otherwise negative; dMass_Tolerance_Fragment_Ions: max mass error allowed for a fragment; iFragmentation_Depth: max depth in the depth-first search of the fragmentation tree; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode.
+# This function manages to calculate subscores of each peak. subscore information are stored in peakmatch_list
+# no return values will not accutally used in the current version
     total_fragment_list = [0 for i in range(4)]
     observed_fragment_list = [0 for i in range(4) ]
     all_compound_match = []
