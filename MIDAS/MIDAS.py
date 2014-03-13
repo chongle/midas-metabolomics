@@ -246,6 +246,7 @@ def ReadFT2Files(sFT2_Filename, iDefault_Polarity, iDefault_Charge_State) :
     sScanNumber = "0"
     precursor_type = 0
     sScanHead = ""
+    sRetentionTime = "NA"
     for each_line in FT2_File :
         each_line = each_line.strip()
         if (each_line == "") :
