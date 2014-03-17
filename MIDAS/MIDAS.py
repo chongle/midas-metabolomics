@@ -79,6 +79,8 @@ def get_file_list_with_ext(working_dir, file_ext):
 
 def HandleOneRealHit(compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dCurrentPrecursor_type, bRankSum, dCurrentParentMass, current_peaks_list, sCurrentScanNumber, mylock, iParentMassWindow_list, dMass_Tolerance_Parent_Ion, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, sFT2_basename, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, dPrecursorMofZ, sRetentionTime, sAnnotation_Filename) :
  
+# CP: process one individual scan in this function; all data about this scan is passed in the parameter
+# CP: scoring_C is just the scoring function version C.
 #Call scoring_C.score_main
 #compound_list :list of compounds of database; sOutput_Filename : outputfile (.meb) file name;  bSpectrumDetails: not used in the current version; bBreakRing : whether break ring bonds; dCurrentPrecursor_type : Precusor type, 1 indicates positive, otherwise negative;  bRankSum: alway false, not used in the current version; dCurrentParentMass: precursor mass; current_peaks_list: peak information; sCurrentScanNumber: scan id; mylock: lock for synchronization; iParentMassWindow_list: parent mass window; dMass_Tolerance_Parent_Ion : parent mass error range;  dMass_Tolerance_Fragment_Ions: peak mass error range; iFragmentation_Depth : search depth in the fragmentation tree;  sFT2_basename: FT2 file base name; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window if positive; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window if negative; dPrecursorMofZ: precursor M/Z;  sRetentionTime: retention time;  sAnnotation_Filename: annotation file (.AFT2) file name.
  
@@ -130,6 +132,7 @@ def HandleAllRealHits(all_scans_list, compound_filename, sOutput_Filename, proce
    
     #This function has the multi-processing part
 
+# CP: all_scans_list contains all information in the parsed FT2 file
 #all_scans_list: list of all scans; compound_filename : database file name; sOutput_Filename: output file (.meb) name;  process_number: the max number of processes allowed to parallel handle compounds; bSpectrumDetails: not used in the current version; bBreakRing: whether break ring bonds; bRankSum: not used in the current version, always false; iParentMassWindow_list: parent mass window; dMass_Tolerance_Parent_Ion: max mass error allowed for precursor mass; dMass_Tolerance_Fragment_Ions: max mass error allowed for peaks; iFragmentation_Depth: max depth in the depth-first search of the fragmentation tree; sFT2_basename: FT2 file name; iPositive_Ion_Fragment_Mass_Windows_list: fragmenet mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode; sAnnotation_Filename: annotation file (.AFT2) name.
 
     #dProtonMass = 1.007825 # proton mass

@@ -83,12 +83,16 @@ def score_main(Compound_list, sOutput_Filename, bSpectrumDetails, bBreakRing, dC
     precursor_accuracy = dMass_Tolerance_Parent_Ion
     Compound_Scores_list = []
     allPeaks_list = NormalizeIntensity(current_peaks_list)
+#CP: QueryCompound_list contains the candidate compounds within the precursor mass tolerance
     QueryCompound_list = GetRelatedCompound(Compound_list, dCurrentParentMass, precursor_accuracy)
     # Compounds satisfied with precursor mass range are saved in QueryCompound_list 
     #print len(QueryCompound_list)
     for each_compound in QueryCompound_list :
+#CP: build a RDkit mol object from inchi
         current_mol = Chem.MolFromInchi(each_compound[1])
+#CP: some compounds have two separate components such as benzoate sodium; this function returns a list of separate components in this compound
         current_fragments_list = Chem.GetMolFrags(current_mol, asMols=True, sanitizeFrags=False)
+#CP: skip all compounds with more than one separate component
         if (len(current_fragments_list) != 1) :
             continue
         # get scores. dCurrentEnergy and sOtherInfo don't have valid value in the current version

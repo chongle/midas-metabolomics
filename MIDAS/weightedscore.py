@@ -13,6 +13,7 @@ from rdkit.Chem import AllChem
 
 
 def OwnScore( allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, dMass_Tolerance_Fragment_Ions,iFragmentation_Depth, iParentMassWindow_list, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list):
+# CP: allPeaks_list contains MS2 information, current_mol is the compound to be scored.
 # This function manage to score a a given compound against a given scan
 # allPeaks_list: list of peaks; current_mol: mol of the original given compound; bBreakRing: whether break ring bonds; precursor_type: precursor type 1 is positive, otherwise, negative; bRankSum: always false; dMass_Tolerance_Fragment_Ions: max mass error allowed for fragment mass ; iFragmentation_Depth : max depth in the depth-first search of the fragmentation tree; iParentMassWindow_list: parent mass window; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list : fragment mass window under negative mode
 # This function manage to score a a given compound against a given scan
@@ -22,6 +23,7 @@ def OwnScore( allPeaks_list, current_mol, bBreakRing, precursor_type, bRankSum, 
     dCurrentScore = 0
     dCurrentEnergy = 0 # won't get real value in the current version
     iIdentifiedPeak= 0
+# CP: peakmatch_list contain a list of peaks, which of each may match to multiple fragments. the first fragment for a peak has the highest score
     peakmatch_list = [[] for each_peak in allPeaks_list]
     total_fragment_list, observed_fragment_list, all_compound_match  = ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precursor_type, dMass_Tolerance_Fragment_Ions, iFragmentation_Depth, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list)
    # print "Exhaust done!"
@@ -80,6 +82,7 @@ def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, 
 #current_mol: original compound mol (mol is a data structure used in RDKit for representing a compound or fragment); iBondsNum: total number of bonds; allPeaks_list: list of peak information; iDepth: max depth in the depth-first search of the fragmentation tree; peakmatch_list: list of peak match information ; bBreakRing: whether break ring bonds; precursor_type: 1 positive precursor, -1 negative; total_fragment_list: not used in the current version; observed_fragment_list: not used in the current version; all_compound_match: not used in the current version; dMass_Tolerance_Fragment_Ions: max mass error for fragment when it is against a peak; iPositive_Ion_Fragment_Mass_Windows_list: fragment mass window under positive mode; iNegative_Ion_Fragment_Mass_Windows_list: fragment mass window under negative mode; root_observed_status: 0 original compound is obersved, 1 not; dF_root: plausibility score of the original compound 
 
     root_node = [Chem.EditableMol(current_mol),[],0] # editable_mol,list of list of removed bonds, depth
+# CP: get the bonds to be removed.
     current_ring_bonds_list, current_linear_bonds_list = ClassifyBonds(root_node[0].GetMol(), bBreakRing)
     current_ringbonds_iter = itertools.combinations(current_ring_bonds_list, 2)
     current_ringbonds_combination_list = list(current_ringbonds_iter)
@@ -94,11 +97,15 @@ def TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iDepth, 
     while (len(storedNodes) > 0) :
         #check the last fragment, if it has unproecessed kid, deal with it, otherwise generate new kid. If even no new kids, delete this fragment
         if (len(storedNodes[-1][3]) > 0) : # unprocessed kid
+# CP: processKid goes one step deeper into the tree
             new_item = processKid(storedNodes[-1][3][0][0], storedNodes[-1][3][0][1], storedNodes[-1][0][2]+1, allPeaks_list, peakmatch_list,  bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, storedNodes[-1][3][0][2], storedNodes[-1][4], storedNodes[-1][5], storedNodes[-1][6]) 
             del storedNodes[-1][3][0]
+# CP: reached the max depth and stop
             if (new_item[0][2] < iDepth) :
                 storedNodes.append(new_item)
+# CP: there is no unprocessed kids anymore, then try to generate new kids by breaking other bonds
         elif (len(storedNodes[-1][1]) > 0) : # linear bond
+# CP: remove_bond is a RDkit bond object, which is to be removed here
             remove_bond = storedNodes[-1][1][0]
             current_fragments_list, bValidOperation = RemoveBonds(storedNodes[-1][0][0].GetMol(), [remove_bond]) 
             if (bValidOperation) :
@@ -204,6 +211,7 @@ def DumpOneFragment(current_fragment_mol, FragmentBonds_list) :
     return current_dMass, current_sFragmentFormula, current_smiles
 
 def ClassifyBonds(current_mol, bBreakRing) :
+# CP: this provides a list of bonds to be removed.
     # classify ring bonds and linear bonds
 # current_mol: the mol of current fragment; bBreakRing: whether consider ring bonds
 #ring_bonds_list: list of ring bonds; linear_bonds_list: list of linear bonds.
@@ -268,16 +276,20 @@ def ExhaustBonds(current_mol, allPeaks_list, peakmatch_list, bBreakRing,precurso
 # no return values will not accutally used in the current version
     total_fragment_list = [0 for i in range(4)]
     observed_fragment_list = [0 for i in range(4) ]
+# CP: this list is not used.  
     all_compound_match = []
     
     current_sFragmentFormula = AllChem.CalcMolFormula(current_mol)
+# CP: current_smile is a text string, generating SMILES for fragments generally won't crash,  but inchi for fragments may crash.
     current_smiles = Chem.MolToSmiles(current_mol)
     # dF_self S(F) of current fragment
+# CP: dF is the plausibility score
     dF_self = 1.0
     root_observed_status = 0 # initialization, 0 observed, 1 not
     bRootFragment = True
     #calculate score of the original compound (root fragment)
     bFindPeak, dCurrentFragmentBDE, root_observed_status, dF_self = MapMass(Descriptors.ExactMolWt(current_mol), allPeaks_list, peakmatch_list, current_sFragmentFormula, current_smiles, [],   precursor_type, total_fragment_list,  observed_fragment_list, 0, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, 0, 1, 0, 0)
+# CP: BDE: bond dissociation energy, which is not used any more.
     all_compound_match.append([bFindPeak, dCurrentFragmentBDE])
     iBondsNum = current_mol.GetNumBonds()
     TreeLikeBreakBondsDepthFirst(current_mol, iBondsNum, allPeaks_list, iFragmentation_Depth, peakmatch_list,   bBreakRing, precursor_type, total_fragment_list, observed_fragment_list, all_compound_match, dMass_Tolerance_Fragment_Ions, iPositive_Ion_Fragment_Mass_Windows_list, iNegative_Ion_Fragment_Mass_Windows_list, root_observed_status, dF_self)
